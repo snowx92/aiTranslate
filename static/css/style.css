@@ -279,3 +279,100 @@ textarea.form-control:focus {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+/* Dropdown Button Styling */
+
+/* Dropdown Menu Styling */
+.export-buttons .dropdown-menu {
+    border-radius: 8px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Dropdown Items */
+.export-buttons .dropdown-item {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    padding: 10px 15px;
+    transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
+    cursor: pointer;
+    user-select: none; /* Prevents accidental text selection */
+}
+
+/* Prevents text color change on click */
+.export-buttons .dropdown-item:active {
+    color: inherit !important;
+    background-color: inherit !important;
+}
+
+/* Hover Effects */
+.export-buttons .dropdown-item:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.05);
+}
+
+/* Icon Styling */
+.export-buttons .dropdown-item i {
+    margin-right: 10px;
+    font-size: 18px;
+    transition: transform 0.3s ease-in-out;
+}
+
+/* Color-Specific Icons */
+.export-buttons .dropdown-item[data-type="excel"] i {
+    color: green;
+}
+
+.export-buttons .dropdown-item[data-type="word-table"] i,
+.export-buttons .dropdown-item[data-type="word-text"] i {
+    color: blue;
+}
+
+.export-buttons .dropdown-item[data-type="pdf-table"] i,
+.export-buttons .dropdown-item[data-type="pdf-text"] i {
+    color: red;
+}
+
+/* Hover Animation for Icons */
+.export-buttons .dropdown-item:hover i {
+    transform: rotate(-10deg) scale(1.1);
+}
+
+/* Fade-in Animation for Dropdown */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.export-btn {
+    background-color: rgba(128, 128, 128, 0.1); /* Light gray faded background */
+    border: none;
+    border-radius: 8px; /* Slightly rounded edges */
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease;
+}
+
+.export-btn i {
+    font-size: 20px;
+    color: #555; /* Dark gray icon */
+}
+
+.export-btn:hover {
+    background-color: rgba(128, 128, 128, 0.2); /* Slightly darker on hover */
+}
+
+.export-btn:focus, 
+.export-btn:active {
+    outline: none;
+    box-shadow: none; /* Remove default button focus styles */
+}
+
