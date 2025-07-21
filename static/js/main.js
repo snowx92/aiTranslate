@@ -22,6 +22,17 @@ document.addEventListener('DOMContentLoaded', function () {
         content.textContent = text;
         messageDiv.appendChild(icon);
         messageDiv.appendChild(content);
+        
+        // Add TTS (speak) button for assistant messages
+        if (!isUser && text.trim()) {
+            const speakButton = document.createElement('button');
+            speakButton.className = 'speak-button btn btn-sm btn-outline-primary ms-2';
+            speakButton.innerHTML = '<i class="bi bi-volume-up"></i>';
+            speakButton.title = 'Listen to translation';
+            speakButton.addEventListener('click', () => playTextToSpeech(text, speakButton));
+            messageDiv.appendChild(speakButton);
+        }
+        
         chatContainer.appendChild(messageDiv);
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
@@ -193,7 +204,18 @@ document.addEventListener('DOMContentLoaded', function () {
                         addMessage(translation, false);
                     } catch (error) {
                         console.error('Audio processing error:', error);
-                        alert('Audio processing failed: ' + error.message);
+                        
+                        // Better error messages for common issues
+                        let errorMessage = error.message;
+                        if (errorMessage.includes('Rate limit exceeded') || errorMessage.includes('429')) {
+                            errorMessage = 'OpenAI API rate limit reached. Please wait a few minutes and try again. Consider upgrading your OpenAI plan for higher limits.';
+                        } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+                            errorMessage = 'OpenAI API key issue. Please check your API key configuration.';
+                        } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+                            errorMessage = 'Network error. Please check your internet connection and try again.';
+                        }
+                        
+                        alert('Audio processing failed: ' + errorMessage);
                     } finally {
                         audioChunks = [];
                     }
@@ -226,6 +248,33 @@ function getChatMessages() {
         } else if (msg.classList.contains('assistant-message')) {
             const translatedText = msg.querySelector('.message-content').textContent;
             chatData.push([lastUserMessage, translatedText]);
+            lastUserMessage = '';
+        }
+    });
+
+    return chatData;
+}
+
+// Function to get chat messages for backend export (PDF/server-side exports)
+function getChatMessagesForExport() {
+    const messages = document.querySelectorAll('.message');
+    const chatData = [];
+    const sourceLang = document.getElementById('sourceLang').value;
+    const targetLang = document.getElementById('targetLang').value;
+
+    let lastUserMessage = '';
+
+    messages.forEach((msg) => {
+        if (msg.classList.contains('user-message')) {
+            lastUserMessage = msg.querySelector('.message-content').textContent;
+        } else if (msg.classList.contains('assistant-message')) {
+            const translatedText = msg.querySelector('.message-content').textContent;
+            chatData.push({
+                original: lastUserMessage,
+                translated: translatedText,
+                source_lang: sourceLang,
+                target_lang: targetLang
+            });
             lastUserMessage = '';
         }
     });
@@ -422,14 +471,25 @@ async function fetchAndExportPDF(fileType) {
     const apiUrl = fileType === 'pdf-table' ? '/export/pdf_table' : '/export/pdf_text';
 
     try {
+        // Use the correct data format for backend export
+        const chatData = getChatMessagesForExport();
+        
+        if (chatData.length === 0) {
+            alert("No messages to export.");
+            return;
+        }
+
+        console.log("Sending chat data to backend:", chatData); // Debug log
+
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_data: getChatMessages() }) // Sending current chat messages
+            body: JSON.stringify({ chat_data: chatData }) // Using the correct format
         });
 
         if (!response.ok) {
-            throw new Error(`Error: ${response.statusText}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Server error: ${response.statusText}`);
         }
 
         const blob = await response.blob();
@@ -440,8 +500,84 @@ async function fetchAndExportPDF(fileType) {
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
+        
+        console.log("PDF export successful!"); // Success log
     } catch (error) {
         console.error("Failed to export PDF:", error);
-        alert("Error exporting PDF. Please try again.");
+        alert("Error exporting PDF: " + error.message);
+    }
+}
+
+// Text-to-Speech functionality
+async function playTextToSpeech(text, button) {
+    const originalIcon = button.innerHTML;
+    
+    try {
+        // Show loading state
+        button.innerHTML = '<i class="bi bi-arrow-clockwise spinner-border spinner-border-sm"></i>';
+        button.disabled = true;
+        
+        const response = await fetch('/text-to-speech', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text: text,
+                voice: 'alloy',  // You can make this configurable
+                model: 'tts-1'
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'TTS request failed');
+        }
+
+        // Get audio blob
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Create and play audio
+        const audio = new Audio(audioUrl);
+        
+        // Show playing state
+        button.innerHTML = '<i class="bi bi-pause-fill"></i>';
+        button.title = 'Audio playing...';
+        
+        audio.play();
+        
+        // Handle audio end
+        audio.addEventListener('ended', () => {
+            button.innerHTML = originalIcon;
+            button.disabled = false;
+            button.title = 'Listen to translation';
+            URL.revokeObjectURL(audioUrl);
+        });
+        
+        // Handle audio errors
+        audio.addEventListener('error', () => {
+            throw new Error('Failed to play audio');
+        });
+        
+    } catch (error) {
+        console.error('TTS error:', error);
+        
+        // Better error messages for TTS issues
+        let errorMessage = error.message;
+        if (errorMessage.includes('Rate limit exceeded') || errorMessage.includes('429')) {
+            errorMessage = 'OpenAI TTS rate limit reached. Please wait a few minutes before using text-to-speech again.';
+        } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+            errorMessage = 'OpenAI API key issue. Please check your configuration.';
+        } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        alert('Text-to-speech failed: ' + errorMessage);
+        
+        // Reset button state
+        button.innerHTML = originalIcon;
+        button.disabled = false;
+        button.title = 'Listen to translation';
     }
 }

@@ -1,0 +1,41 @@
+# Core Flask dependencies
+Flask==2.3.3
+Flask-CORS==4.0.0
+Werkzeug==2.3.7
+
+# HTTP requests for API calls
+requests==2.31.0
+
+# OpenAI API for Whisper and TTS
+openai==1.51.0
+
+# PDF processing
+PyPDF2==3.0.1
+
+# Document processing
+python-docx==0.8.11
+
+# PDF generation with Arabic support
+reportlab
+arabic-reshaper==3.0.0
+python-bidi==0.4.2
+
+# Additional PDF generation
+fpdf2
+
+# Image processing
+Pillow
+
+# Environment variable management
+python-dotenv==1.0.0
+
+# Excel processing
+pandas
+openpyxl
+
+# Diagram generation
+graphviz
+
+# Note: The following packages require Visual Studio compiler on Windows:
+# - pdf2image (for OCR) - can be installed separately if needed
+# - pytesseract (for OCR) - can be installed separately if needed

@@ -1,5 +1,4 @@
 import os
-import pandas as pd
 from io import BytesIO
 from flask import send_file, jsonify, make_response
 from docx import Document
@@ -12,226 +11,223 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
-import os
-from io import BytesIO
-from flask import send_file, jsonify, make_response
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib import colors
-from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
-from io import BytesIO
-def format_text(text, language):
 
+def format_text(text, language):
+    """Format text for proper display based on language."""
+    if language == "Arabic":
+        return reshape_arabic(text)
     return text
 
 def export_to_excel(chat_data):
-    if not chat_data:
-        return jsonify({"error": "No messages to export"}), 400
-
-    df = pd.DataFrame(chat_data, columns=["Original Text", "Translated Text"])
-
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, sheet_name="Chat Export", index=False)
-        workbook = writer.book
-        worksheet = writer.sheets["Chat Export"]
-
-        # Set column width
-        for i, col in enumerate(df.columns):
-            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-            worksheet.set_column(i, i, max_len)
-
-        # Center text and apply header format
-        header_format = workbook.add_format({
-            'bold': True,
-            'text_wrap': True,
-            'align': 'center',
-            'valign': 'vcenter',
-            'fg_color': '#D7E4BC',
-            'border': 1
-        })
-        for col_num, value in enumerate(df.columns.values):
-            worksheet.write(0, col_num, value, header_format)
-
-    output.seek(0)
-
-    response = make_response(send_file(
-        output,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name="translated_chat.xlsx"
-    ))
-
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-
-    return response
+    """Export chat data to Excel format. Requires pandas and openpyxl."""
+    try:
+        # Optional import - only works if packages are installed
+        import pandas as pd
+        
+        # Prepare data for Excel
+        data = []
+        for item in chat_data:
+            data.append({
+                'Original Text': item.get('original', ''),
+                'Translated Text': item.get('translated', ''),
+                'Source Language': item.get('source_lang', ''),
+                'Target Language': item.get('target_lang', '')
+            })
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        # Create Excel file in memory
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Translations', index=False)
+        
+        output.seek(0)
+        
+        response = make_response(send_file(
+            output,
+            as_attachment=True,
+            download_name='chat_translations.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ))
+        
+        return response
+        
+    except ImportError:
+        return jsonify({
+            'error': 'Excel export not available. Install pandas and openpyxl for Excel export functionality.',
+            'message': 'Run: pip install pandas openpyxl'
+        }), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to export to Excel: {str(e)}'}), 500
 
 def export_to_word(chat_data):
-    if not chat_data:
-        return jsonify({"error": "No messages to export"}), 400
+    """Export chat data to Word document format."""
+    try:
+        doc = Document()
+        
+        # Add title
+        title = doc.add_heading('Translation Results', 0)
+        title.alignment = 1  # Center alignment
+        
+        # Add content
+        for i, item in enumerate(chat_data, 1):
+            # Add entry number
+            doc.add_heading(f'Translation {i}', level=1)
+            
+            # Original text
+            original_para = doc.add_paragraph()
+            original_para.add_run('Original: ').bold = True
+            original_para.add_run(item.get('original', ''))
+            
+            # Translated text
+            translated_para = doc.add_paragraph()
+            translated_para.add_run('Translated: ').bold = True
+            translated_para.add_run(item.get('translated', ''))
+            
+            # Languages
+            lang_para = doc.add_paragraph()
+            lang_para.add_run('Language Pair: ').bold = True
+            lang_para.add_run(f"{item.get('source_lang', '')} → {item.get('target_lang', '')}")
+            
+            doc.add_paragraph('─' * 50)  # Separator
+        
+        # Save to BytesIO
+        output = BytesIO()
+        doc.save(output)
+        output.seek(0)
+        
+        response = make_response(send_file(
+            output,
+            as_attachment=True,
+            download_name='chat_translations.docx',
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ))
+        
+        return response
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to export to Word: {str(e)}'}), 500
 
-    doc = Document()
-    table = doc.add_table(rows=1, cols=2)
-    table.style = "Table Grid"
-
-    hdr_cells = table.rows[0].cells
-    hdr_cells[0].text = "Original Text"
-    hdr_cells[1].text = "Translated Text"
-
-    for row in chat_data:
-        row_cells = table.add_row().cells
-        row_cells[0].text = format_text(str(row[0]), 'english')
-        row_cells[1].text = format_text(str(row[1]), 'arabic')
-
-    output = BytesIO()
-    doc.save(output)
-    output.seek(0)
-    
-    response = make_response(send_file(
-        output,
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        as_attachment=True,
-        download_name="translated_chat.docx"
-    ))
-    
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    
-    return response
-
+def export_to_pdf_table(chat_data):
+    """Export chat data to PDF with table format."""
+    try:
+        print(f"[DEBUG] Received chat_data: {chat_data}")  # Debug log
+        print(f"[DEBUG] Chat data type: {type(chat_data)}")  # Debug log
+        print(f"[DEBUG] Chat data length: {len(chat_data) if chat_data else 0}")  # Debug log
+        
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        
+        # Prepare data for table
+        data = [['Original Text', 'Translated Text', 'Language Pair']]
+        
+        for i, item in enumerate(chat_data):
+            print(f"[DEBUG] Processing item {i}: {item}")  # Debug log
+            original = format_text(item.get('original', ''), item.get('source_lang', ''))
+            translated = format_text(item.get('translated', ''), item.get('target_lang', ''))
+            lang_pair = f"{item.get('source_lang', '')} → {item.get('target_lang', '')}"
+            
+            data.append([original, translated, lang_pair])
+        
+        # Create table
+        table = Table(data, colWidths=[150, 150, 100])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        # Build PDF
+        doc.build([table])
+        buffer.seek(0)
+        
+        response = make_response(send_file(
+            buffer,
+            as_attachment=True,
+            download_name='chat_translations.pdf',
+            mimetype='application/pdf'
+        ))
+        
+        return response
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to export to PDF: {str(e)}'}), 500
 
 def export_to_word_text(chat_data):
-    if not chat_data:
-        return jsonify({"error": "No messages to export"}), 400
+    """Export chat data to Word document with text format."""
+    return export_to_word(chat_data)  # Same implementation
 
-    doc = Document()
-    
-    for row in chat_data:
-        translated_text = format_text(str(row[1]), 'arabic')  # Only translated text
+def export_to_pdf_text(chat_data):
+    """Export chat data to PDF with text format."""
+    try:
+        print(f"[DEBUG] PDF Text - Received chat_data: {chat_data}")  # Debug log
+        print(f"[DEBUG] PDF Text - Chat data type: {type(chat_data)}")  # Debug log
+        print(f"[DEBUG] PDF Text - Chat data length: {len(chat_data) if chat_data else 0}")  # Debug log
         
-        p = doc.add_paragraph()
-        run = p.add_run(translated_text)
-        run.bold = True  # Make text bold
-
-        doc.add_paragraph("")  # Add space
-
-    output = BytesIO()
-    doc.save(output)
-    output.seek(0)
-
-    response = make_response(send_file(
-        output,
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        as_attachment=True,
-        download_name="translated_chat_text.docx"
-    ))
-
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-
-    return response
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        # Add title
+        title = Paragraph("Translation Results", styles['Title'])
+        story.append(title)
+        
+        # Add content
+        for i, item in enumerate(chat_data, 1):
+            print(f"[DEBUG] PDF Text - Processing item {i}: {item}")  # Debug log
+            # Entry header
+            header = Paragraph(f"Translation {i}", styles['Heading1'])
+            story.append(header)
+            
+            # Original text
+            original_text = f"<b>Original:</b> {item.get('original', '')}"
+            original_para = Paragraph(original_text, styles['Normal'])
+            story.append(original_para)
+            
+            # Translated text
+            translated_text = f"<b>Translated:</b> {item.get('translated', '')}"
+            translated_para = Paragraph(translated_text, styles['Normal'])
+            story.append(translated_para)
+            
+            # Language pair
+            lang_text = f"<b>Language Pair:</b> {item.get('source_lang', '')} → {item.get('target_lang', '')}"
+            lang_para = Paragraph(lang_text, styles['Normal'])
+            story.append(lang_para)
+            
+            # Separator
+            separator = Paragraph("─" * 50, styles['Normal'])
+            story.append(separator)
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        response = make_response(send_file(
+            buffer,
+            as_attachment=True,
+            download_name='chat_translations.pdf',
+            mimetype='application/pdf'
+        ))
+        
+        return response
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to export to PDF: {str(e)}'}), 500
 
 # Register arial font
 font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'arial.ttf')
-pdfmetrics.registerFont(TTFont('arial', font_path))
-
+if os.path.exists(font_path):
+    pdfmetrics.registerFont(TTFont('arial', font_path))
 
 def reshape_arabic(text):
     """Fix Arabic text display issues (inversion & spacing)."""
     return get_display(arabic_reshaper.reshape(text))
-
-import textwrap
-
-def export_to_pdf_text(chat_data):
-    if not chat_data:
-        return jsonify({"error": "No messages to export"}), 400
-
-    output = BytesIO()
-    pdf = canvas.Canvas(output, pagesize=A4)
-    pdf.setFont("Helvetica", 12)
-
-    y_position = 800  # Start position for text
-    max_width = 450  # Adjust max width for text wrapping
-
-    for row in chat_data:
-        translated_text = reshape_arabic(str(row[1]))  # Reshape Arabic text
-
-        # Wrap text
-        wrapped_text = textwrap.wrap(translated_text, width=70)  # Adjust width as needed
-
-        for line in wrapped_text:
-            pdf.drawRightString(500, y_position, line)  # Right-aligned for Arabic
-            y_position -= 20  # Move down
-
-            if y_position < 50:  # If at bottom, create new page
-                pdf.showPage()
-                pdf.setFont("Helvetica", 12)
-                y_position = 800
-
-    pdf.save()
-    output.seek(0)
-
-    response = make_response(send_file(
-        output,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name="translated_chat_text.pdf"
-    ))
-
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-
-    return response
-
-def export_to_pdf_table(chat_data):
-    if not chat_data:
-        return jsonify({"error": "No messages to export"}), 400
-
-    output = BytesIO()
-    doc = SimpleDocTemplate(output, pagesize=A4)
-    elements = []
-    
-    styles = getSampleStyleSheet()
-    styleN = styles["Normal"]
-
-    data = [["Original Text", "Translated Text"]]  # Table Header
-
-    for row in chat_data:
-        original_text = Paragraph(str(row[0]), styleN)
-        translated_text = Paragraph(reshape_arabic(str(row[1])), styleN)  # Fix Arabic text order
-        data.append([original_text, translated_text])
-
-    # Define table style
-    table = Table(data, colWidths=[250, 250])  # Ensure columns have enough width
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgreen),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, -1), "Helvetica"),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Ensures multi-line text is visible
-    ])
-    table.setStyle(style)
-
-    elements.append(table)
-    doc.build(elements)
-
-    output.seek(0)
-    response = make_response(send_file(
-        output,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name="translated_chat_table.pdf"
-    ))
-
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-
-    return response

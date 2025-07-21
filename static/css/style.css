@@ -376,3 +376,58 @@ textarea.form-control:focus {
     box-shadow: none; /* Remove default button focus styles */
 }
 
+/* Speak Button Styles for TTS */
+.speak-button {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-left: 10px;
+    transition: all var(--transition-speed);
+    opacity: 0.7;
+    border: 1px solid var(--primary-color);
+}
+
+.speak-button:hover {
+    opacity: 1;
+    transform: scale(1.05);
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.speak-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.speak-button i {
+    font-size: 14px;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.assistant-message .speak-button {
+    align-self: center;
+}
+
+/* Mobile responsive for speak buttons */
+@media (max-width: 768px) {
+    .speak-button {
+        width: 28px;
+        height: 28px;
+        margin-left: 8px;
+    }
+    
+    .speak-button i {
+        font-size: 12px;
+    }
+}
+
