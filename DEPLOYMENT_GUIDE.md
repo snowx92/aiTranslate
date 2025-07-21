@@ -31,7 +31,7 @@
      - **Name**: ai-translator-yourname
      - **Environment**: Python 3
      - **Build Command**: `pip install -r requirements.txt`
-     - **Start Command**: `python app.py`
+     - **Start Command**: `gunicorn app:app -c gunicorn.conf.py`
    - Add environment variables:
      - `OPENAI_API_KEY`: your-openai-key
      - `HUGGINGFACE_API_TOKEN`: your-hf-token

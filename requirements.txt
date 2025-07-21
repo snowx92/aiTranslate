@@ -3,6 +3,9 @@ Flask==2.3.3
 Flask-CORS==4.0.0
 Werkzeug==2.3.7
 
+# Production WSGI server
+gunicorn==21.2.0
+
 # HTTP requests for API calls
 requests==2.31.0
 
@@ -14,9 +17,10 @@ PyPDF2==3.0.1
 
 # Document processing
 python-docx==0.8.11
+lxml==6.0.0
 
 # PDF generation with Arabic support
-reportlab
+reportlab==4.4.2
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
 
@@ -24,18 +28,26 @@ python-bidi==0.4.2
 fpdf2
 
 # Image processing
-Pillow
+Pillow==11.3.0
 
 # Environment variable management
 python-dotenv==1.0.0
 
 # Excel processing
-pandas
-openpyxl
+pandas==2.2.3
+openpyxl==3.1.5
 
-# Diagram generation
-graphviz
+# Required dependencies for AI models
+numpy==2.2.3
+typing-extensions==4.14.1
+pydantic==2.11.7
 
-# Note: The following packages require Visual Studio compiler on Windows:
-# - pdf2image (for OCR) - can be installed separately if needed
-# - pytesseract (for OCR) - can be installed separately if needed
+# HTTP client for APIs
+httpx==0.28.1
+
+# Additional utilities
+blinker==1.9.0
+click==8.2.1
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.2
